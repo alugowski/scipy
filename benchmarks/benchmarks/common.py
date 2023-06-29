@@ -77,13 +77,22 @@ def get_max_rss_bytes(rusage):
         # on macOS ru_maxrss is in bytes
         return rusage.ru_maxrss
     else:
-        # Unknown, just return whatever is here.
-        return rusage.ru_maxrss
+        # Unknown. Nearly all unix systems, besides macOS, report maxrss
+        # in kilobytes. FreeBSD, OpenBSD, NetBSD, AIX, etc.
+        return rusage.ru_maxrss * 1024
 
 
-def run_monitored_wait4(code):
+def run_monitored_wait4(code, env=None):
     """
     Run code in a new Python process, and monitor peak memory usage.
+
+    Parameters
+    ----------
+    code : str
+        Python code to run.
+
+    env : dict, optional
+        Environment variables pass to Popen.
 
     Returns
     -------
@@ -99,7 +108,7 @@ def run_monitored_wait4(code):
     code = textwrap.dedent(code)
 
     start = time.time()
-    process = subprocess.Popen([sys.executable, '-c', code])
+    process = subprocess.Popen([sys.executable, '-c', code], env=env)
     pid, returncode, rusage = os.wait4(process.pid, 0)
     duration = time.time() - start
     max_rss_bytes = get_max_rss_bytes(rusage)
@@ -110,9 +119,17 @@ def run_monitored_wait4(code):
     return duration, max_rss_bytes
 
 
-def run_monitored_proc(code):
+def run_monitored_proc(code, env=None):
     """
     Run code in a new Python process, and monitor peak memory usage.
+
+    Parameters
+    ----------
+    code : str
+        Python code to run.
+
+    env : dict, optional
+        Environment variables pass to Popen.
 
     Returns
     -------
@@ -121,12 +138,15 @@ def run_monitored_proc(code):
     peak_memusage : float
         Peak memory usage (rough estimate only) in bytes
 
+    Notes
+    -----
+    Works on Linux only.
     """
     if not sys.platform.startswith('linux'):
         raise RuntimeError("Peak memory monitoring only works on Linux")
 
     code = textwrap.dedent(code)
-    process = subprocess.Popen([sys.executable, '-c', code])
+    process = subprocess.Popen([sys.executable, '-c', code], env=env)
 
     peak_memusage = -1
 
@@ -156,9 +176,19 @@ def run_monitored_proc(code):
     return duration, peak_memusage
 
 
-def run_monitored(code):
+def run_monitored(code, env=None):
     """
     Run code in a new Python process, and monitor peak memory usage.
+
+    Parameters
+    ----------
+    code : str
+        Python code to run.
+
+    env : dict, optional
+        Additional environment variables pass to the Python interpreter.
+        Suggestion: ``env={'OPENBLAS_NUM_THREADS': '1'}`` to prevent
+        OpenBLAS from allocating large per-thread memory blocks.
 
     Returns
     -------
@@ -169,10 +199,14 @@ def run_monitored(code):
 
     """
 
+    if env is not None:
+        # If 'env' is not None then Popen expects it to be the full environment.
+        env = os.environ.copy().update(env)
+
     if hasattr(os, 'wait4'):
-        return run_monitored_wait4(code)
+        return run_monitored_wait4(code, env=env)
     else:
-        return run_monitored_proc(code)
+        return run_monitored_proc(code, env=env)
 
 
 def get_mem_info():

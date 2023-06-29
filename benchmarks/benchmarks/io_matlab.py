@@ -66,7 +66,7 @@ class MemUsage(Benchmark):
         from scipy.io import loadmat
         loadmat('%s')
         """ % (self.filename,)
-        time, peak_mem = run_monitored(code)
+        time, peak_mem = run_monitored(code, env={'OPENBLAS_NUM_THREADS': '1'})
 
         return peak_mem / size
 
@@ -79,7 +79,7 @@ class MemUsage(Benchmark):
         x = np.random.rand(%d//8).view(dtype=np.uint8)
         savemat('%s', dict(x=x), do_compression=%r, oned_as='row')
         """ % (size, self.filename, compressed)
-        time, peak_mem = run_monitored(code)
+        time, peak_mem = run_monitored(code, env={'OPENBLAS_NUM_THREADS': '1'})
         return peak_mem / size
 
 
