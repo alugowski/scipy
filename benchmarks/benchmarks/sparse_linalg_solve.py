@@ -14,6 +14,13 @@ with safe_import():
 with safe_import():
     from scipy.sparse.linalg import gcrotmk
 
+    # enable threading
+    try:
+        import scipy.sparse._sparsetools
+        scipy.sparse._sparsetools.set_workers(0)
+    except AttributeError:
+        pass
+
 
 def _create_sparse_poisson1d(n):
     # Make Gilbert Strang's favorite matrix
@@ -32,7 +39,7 @@ def _create_sparse_poisson2d(n):
 
 class Bench(Benchmark):
     params = [
-        [4, 6, 10, 16, 25, 40, 64, 100],
+        [4, 6, 10, 16, 25, 40, 64, 100, 250, 400, 640, 1000],
         ['dense', 'spsolve', 'cg', 'minres', 'gmres', 'lgmres', 'gcrotmk',
          'tfqmr']
     ]

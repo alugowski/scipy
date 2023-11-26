@@ -10,12 +10,20 @@ import numpy
 import numpy as np
 from numpy import ones, array, asarray, empty
 
+import scipy.sparse
 from .common import Benchmark, safe_import
 
 with safe_import():
     from scipy import sparse
     from scipy.sparse import (coo_matrix, dia_matrix, lil_matrix,
                               dok_matrix, rand, SparseEfficiencyWarning)
+
+    # enable threading
+    try:
+        import scipy.sparse._sparsetools
+        scipy.sparse._sparsetools.set_workers(0)
+    except AttributeError:
+        pass
 
 
 def random_sparse(m, n, nnz_per_row):
@@ -50,28 +58,38 @@ def poisson2d(N, dtype='d', format=None):
 
 
 class Arithmetic(Benchmark):
-    param_names = ['format', 'XY', 'op']
+    param_names = ['format', 'XY', 'N', 'canonical', 'op']
     params = [
-        ['csr', 'csc', 'coo', 'dia'],
+        ['csr', 'coo', 'dia'],
         ['AA', 'AB', 'BA', 'BB'],
-        ['__add__', '__sub__', 'multiply', '__mul__']
+        [50, 250, 1000],
+        [False, True],
+        ['__add__', '__sub__', 'multiply', '__mul__'],
     ]
 
-    def setup(self, format, XY, op):
-        matrices = dict(A=poisson2d(250, format=format),
-                        B=poisson2d(250, format=format)**2)
+    def setup(self, format, XY, N, canonical, op):
+        if N > 500 and format not in ['csr', 'csc']:
+            raise NotImplementedError
+
+        matrices = dict(A=poisson2d(N, format=format),
+                        B=poisson2d(N, format=format)**2)
+
+        if canonical:
+            for k in ['A', 'B']:
+                if hasattr(matrices[k], 'sum_duplicates'):
+                    matrices[k].sum_duplicates()
 
         x = matrices[XY[0]]
         self.y = matrices[XY[1]]
         self.fn = getattr(x, op)
-        self.fn(self.y)  # warmup
+        # self.fn(self.y)  # warmup
 
-    def time_arithmetic(self, format, XY, op):
+    def time_arithmetic(self, format, XY, N, canonical, op):
         self.fn(self.y)
 
 
 class Sort(Benchmark):
-    params = ['Rand10', 'Rand25', 'Rand50', 'Rand100', 'Rand200']
+    params = ['Rand10', 'Rand25', 'Rand50', 'Rand100', 'Rand200', 'Rand1000', 'Rand2000']
     param_names = ['matrix']
 
     def setup(self, matrix):
@@ -91,7 +109,7 @@ class Sort(Benchmark):
 
 class Matvec(Benchmark):
     params = [
-        ['Identity', 'Poisson5pt', 'Block2x2', 'Block3x3'],
+        ['Identity', 'Poisson5pt', 'Block2x2', 'Block3x3', 'Identity10M', 'Poisson1000', 'Poisson3000'],
         ['dia', 'csr', 'csc', 'dok', 'lil', 'coo', 'bsr']
     ]
     param_names = ['matrix', 'format']
@@ -115,6 +133,18 @@ class Matvec(Benchmark):
             b = (3, 3)
             self.A = sparse.kron(poisson2d(100),
                                  ones(b)).tobsr(blocksize=b).asformat(format)
+        elif matrix == 'Identity10M':
+            if format not in ('csr', 'csc'):
+                raise NotImplementedError()
+            self.A = sparse.eye(10_000_000, 10_000_000, format=format)
+        elif matrix == 'Poisson1000':
+            if format not in ('csr', 'csc'):
+                raise NotImplementedError()
+            self.A = poisson2d(1000, format=format)
+        elif matrix == 'Poisson3000':
+            if format not in ('csr', 'csc'):
+                raise NotImplementedError()
+            self.A = poisson2d(3000, format=format)
         else:
             raise NotImplementedError()
 
@@ -161,6 +191,34 @@ class Matmul(Benchmark):
 
     # Retain old benchmark results (remove this if changing the benchmark)
     time_large.version = "33aee08539377a7cb0fabaf0d9ff9d6d80079a428873f451b378c39f6ead48cb"
+
+
+class MatmulLargeCSRRand(Benchmark):
+    params = ['1K,1K', '100K,100K', '10K,1M', '1M,10K', '1M,1M', '10M,1M', '10M,10M', '15M,15M']
+    param_names = ["nnz_A_B"]
+
+    def setup(self, nnz_A_B):
+        nnzs = [int(s.replace('K', '000').replace('M', '000000')) for s in nnz_A_B.split(",")]
+        nnz_1, nnz_2 = nnzs
+
+        nrows, k, ncols = 1_000, 100_000, 1_000
+        self.matrix1 = rand(nrows, k, density=(nnz_1 / (nrows * k)), format='csr')
+        self.matrix2 = rand(k, ncols, density=(nnz_2 / (k * ncols)), format='csr')
+
+    def time_large(self, _):
+        self.matrix1 * self.matrix2
+
+
+class MatmulLargeCSRPoissonSquared(Benchmark):
+    params = [100, 500, 1000, 2000, 3000, 4000, 5000]
+    param_names = ["N"]
+
+    def setup(self, N):
+        self.matrix1 = poisson2d(N, format='csr')
+        self.matrix2 = self.matrix1
+
+    def time_large(self, _):
+        self.matrix1 * self.matrix2
 
 
 class Construction(Benchmark):
@@ -241,7 +299,7 @@ class Conversion(Benchmark):
     param_names = ['from_format', 'to_format']
 
     def setup(self, fromfmt, tofmt):
-        base = poisson2d(100, format=fromfmt)
+        base = poisson2d(1000, format=fromfmt)
 
         try:
             self.fn = getattr(base, 'to' + tofmt)
@@ -329,7 +387,7 @@ class Getset(Benchmark):
 
 
 class NullSlice(Benchmark):
-    params = [[0.05, 0.01], ['csr', 'csc', 'lil']]
+    params = [[0.1, 0.05, 0.01], ['csr', 'csc', 'lil']]
     param_names = ['density', 'format']
 
     def _setup(self, density, format):
@@ -468,16 +526,17 @@ class Densify(Benchmark):
 
 class Random(Benchmark):
     params = [
-        np.arange(0, 1.1, 0.1).tolist()
+        np.arange(0, 1.1, 0.1).tolist(),
+        [1000, 2000],
     ]
-    param_names = ['density']
+    param_names = ['density', 'N']
 
-    def setup(self, density):
+    def setup(self, density, N):
         warnings.simplefilter('ignore', SparseEfficiencyWarning)
-        self.nrows = 1000
-        self.ncols = 1000
+        self.nrows = N
+        self.ncols = N
         self.format = 'csr'
 
-    def time_rand(self, density):
+    def time_rand(self, density, N):
         sparse.rand(self.nrows, self.ncols,
                     format=self.format, density=density)

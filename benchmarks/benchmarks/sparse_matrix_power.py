@@ -3,12 +3,19 @@ from .common import Benchmark, safe_import
 with safe_import():
     from scipy.sparse import random
 
+    # enable threading
+    try:
+        import scipy.sparse._sparsetools
+        scipy.sparse._sparsetools.set_workers(0)
+    except AttributeError:
+        pass
+
 
 class BenchMatrixPower(Benchmark):
     params = [
         [0, 1, 2, 3, 8, 9],
-        [1000],
-        [1e-6, 1e-3],
+        [1000, 2000],
+        [1e-6, 1e-3, 0.01],
     ]
     param_names = ['x', 'N', 'density']
 

@@ -9,6 +9,13 @@ with safe_import():
     from scipy.sparse.linalg import expm as sp_expm
     from scipy.sparse.linalg import expm_multiply
 
+    # enable threading
+    try:
+        import scipy.sparse._sparsetools
+        scipy.sparse._sparsetools.set_workers(0)
+    except AttributeError:
+        pass
+
 
 def random_sparse_csr(m, n, nnz_per_row):
     # Copied from the scipy.sparse benchmark.
@@ -48,7 +55,7 @@ class ExpmMultiply(Benchmark):
 
 class Expm(Benchmark):
     params = [
-        [30, 100, 300],
+        [30, 100, 300, 1000, 2000],
         ['sparse', 'dense']
     ]
     param_names = ['n', 'format']
