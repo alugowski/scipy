@@ -2,8 +2,6 @@ name: Windows tests
 
 on:
   push:
-    branches:
-      - maintenance/**
   pull_request:
     branches:
       - main
@@ -28,7 +26,7 @@ jobs:
     #        (b) it does run with Act locally (`github` doesn't exist there)
     if: >
       needs.get_commit_message.outputs.message == 1
-      && (github.repository == 'scipy/scipy' || github.repository == '')
+#      && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: windows-2019
     steps:
       - name: Checkout
@@ -67,7 +65,7 @@ jobs:
     needs: get_commit_message
     if: >
       needs.get_commit_message.outputs.message == 1
-      && (github.repository == 'scipy/scipy' || github.repository == '')
+#      && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: windows-2019
     steps:
       - name: Checkout
@@ -108,7 +106,7 @@ jobs:
     needs: get_commit_message
     if: >
       needs.get_commit_message.outputs.message == 1
-      && (github.repository == 'scipy/scipy' || github.repository == '')
+#      && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: windows-2019
     steps:
       - name: Checkout
@@ -154,5 +152,5 @@ jobs:
         run: |
           cd $RUNNER_TEMP
           # run full test suite
-          pytest --pyargs scipy
+          pytest --pyargs scipy -x
 

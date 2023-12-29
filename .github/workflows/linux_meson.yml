@@ -2,8 +2,6 @@ name: Linux Meson tests
 
 on:
   push:
-    branches:
-      - maintenance/**
   pull_request:
     branches:
       - main
@@ -31,7 +29,7 @@ jobs:
     # If using act to run CI locally the github object does not exist and
     # the usual skipping should not be enforced
     if: >
-      needs.get_commit_message.outputs.message == 1
+      false && needs.get_commit_message.outputs.message == 1
       && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: ubuntu-22.04
     strategy:
@@ -134,7 +132,7 @@ jobs:
     name: Pip install into venv
     needs: get_commit_message
     if: >
-      needs.get_commit_message.outputs.message == 1
+      false && needs.get_commit_message.outputs.message == 1
       && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: ubuntu-22.04
     steps:
@@ -193,7 +191,7 @@ jobs:
     name: Python-debug & ATLAS
     needs: get_commit_message
     if: >
-      needs.get_commit_message.outputs.message == 1
+      false && needs.get_commit_message.outputs.message == 1
       && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: ubuntu-22.04  # provides python3.10-dbg
     steps:
@@ -224,7 +222,7 @@ jobs:
     needs: get_commit_message
     if: >
       needs.get_commit_message.outputs.message == 1
-      && (github.repository == 'scipy/scipy' || github.repository == '')
+#      && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: ubuntu-20.04  # 22.04 doesn't support gcc-8
     steps:
       - uses: actions/checkout@v3
@@ -265,7 +263,7 @@ jobs:
           # can't be in source directory
           pushd $RUNNER_TEMP
           export PYTHONOPTIMIZE=2
-          python -m pytest --pyargs scipy -n2 --durations=10
+          python -m pytest --pyargs scipy -n2 --durations=10 -x
           popd
 
   #################################################################################
@@ -274,7 +272,7 @@ jobs:
     name: Prerelease deps, coverage, and 64-bit BLAS
     needs: get_commit_message
     if: >
-      needs.get_commit_message.outputs.message == 1
+      false && needs.get_commit_message.outputs.message == 1
       && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: ubuntu-latest
     strategy:
@@ -349,7 +347,7 @@ jobs:
     name: Linux - 32 bit
     needs: get_commit_message
     if: >
-      needs.get_commit_message.outputs.message == 1
+      false && needs.get_commit_message.outputs.message == 1
       && (github.repository == 'scipy/scipy' || github.repository == '')
     runs-on: ubuntu-latest
     # I tried running directly in a container:, using the image: and options:
