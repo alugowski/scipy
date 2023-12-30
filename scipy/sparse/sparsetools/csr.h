@@ -644,20 +644,12 @@ void csr_matmat(const I n_row,
                       I Cj[],
                       T Cx[])
 {
-    // method uses O(n * num_threads) temp storage
+    std::vector<I> next(n_col,-1);
+    std::vector<T> sums(n_col, 0);
 
-    // Group the rows into chunks, with each chunk having its own workspace.
-    // Chunks are independent and can be processed in parallel.
-    for_each_chunk(workers.par_if_flops(Ap[n_row] + Bp[n_col]),
-                   iota_iter<I>(0), iota_iter<I>(n_row), [&n_col]{
-        // create workspace for one chunk of rows
-        return make_pair(
-            std::vector<I>(n_col, -1),  // next
-            std::vector<T>(n_col, 0));  // sums
-    }, [&](I i, auto& workspace){
-        auto& [next, sums] = workspace;
+    I nnz = 0;
 
-        I nnz = Cp[i];
+    for(I i = 0; i < n_row; i++){
         I head   = -2;
         I length =  0;
 
@@ -696,7 +688,7 @@ void csr_matmat(const I n_row,
             next[temp] = -1; //clear arrays
             sums[temp] =  0;
         }
-    });
+    }
 }
 
 
